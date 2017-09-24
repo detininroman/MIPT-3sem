@@ -1,0 +1,16 @@
+	Узнать ID процесса:
+
+getpid ();
+getppid ();
+getuid ();
+geteuid ();
+getgid ();
+getsid ();
+getfsuid ();
+
+pthread_create (&tid, NULL, run, arg); 
+	// запуск функции run в отдельном потоке
+How to get out of thread?
+pthread_exit ();
+pthread_join ();
+
