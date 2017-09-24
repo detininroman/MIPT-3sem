@@ -1,1 +1,1 @@
-# OS-3
+# Operating systems. 3 semester 2017.
