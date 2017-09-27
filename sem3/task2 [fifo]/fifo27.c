@@ -5,8 +5,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define PRINT(...) printf (__VA_ARGS__)
-//#define PRINT(...)
+//#define PRINT(...) printf (__VA_ARGS__)
+#define PRINT(...)
 
 const char* main_fifo_name = "./temp/main_fifo";
 
