@@ -5,8 +5,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-//#define PRINT(...) printf (__VA_ARGS__)
-#define PRINT(...)
+#define PRINT(...) printf (__VA_ARGS__)
+//#define PRINT(...)
 
 const char* main_fifo_name = "./temp/main_fifo";
 
@@ -107,7 +107,7 @@ int reciever (int output)
 
 	//writing text to stdout
 	while ((count = read (fd_ID_fifo, buf, READ_SIZE)) > 0) {
-		write (output, buf, (size_t) count);
+		write (output, buf, count);
 	}
 
 	close  (fd_ID_fifo);
