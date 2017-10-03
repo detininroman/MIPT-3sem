@@ -53,12 +53,13 @@ int sender (char* filename)
 		sprintf (id_fifo_path, "./temp/%d", cur_fifo_ID);
 		mkfifo_ret_val = mkfifo (id_fifo_path, 0666);
 	}
-
-	//filling main fifo with the ID 
+	
+    //filling main fifo with the ID 
 	int* cur_fifo_ID_ptr = &cur_fifo_ID;
 	write (fd_main_fifo, (char *) cur_fifo_ID_ptr, sizeof (int));
-
-	//opening the input file
+    // return 0;
+	
+    //opening the input file
 	int input = open (filename, O_RDONLY);
 	if (input == -1) {
 		perror ("Can't open input file!\n");
@@ -66,10 +67,15 @@ int sender (char* filename)
 	}
 
 	//creating name for current fifo
-	sprintf (id_fifo_path, "./temp/%d", cur_fifo_ID);
+	int sprintf_ret_val = sprintf (id_fifo_path, "./temp/%d", cur_fifo_ID);
+	if (sprintf_ret_val <= 0) {
+		perror ("Can't make id_fifo_path!\n");
+		exit (EXIT_FAILURE);
+	}
 	int fd_ID_fifo = open (id_fifo_path, O_WRONLY);
 	if (fd_ID_fifo == -1) {
 		perror ("Can't open current fifo!\n");
+        exit (EXIT_FAILURE);
 	}
 
 	//writing from input to current fifo
@@ -78,7 +84,7 @@ int sender (char* filename)
 	while ((count = read (input, buf, READ_SIZE)) > 0) {
 		write (fd_ID_fifo, buf, count);
 	}
-
+	
 	close (input);
 	close (fd_ID_fifo);
 	close (fd_main_fifo);
@@ -94,20 +100,29 @@ int reciever (int output)
 	int count = 0;
 
 	int fd_main_fifo = open (main_fifo_name, O_RDONLY);
-
-	//reading current fifo name 
+	
+    //reading current fifo name 
 	read (fd_main_fifo, (char *) &cur_fifo_ID, sizeof (int));
 
-	//translating name to string
+    //translating name to string
 	char id_fifo_path [NAME_LENGTH]= {};
-	sprintf (id_fifo_path, "./temp/%d", cur_fifo_ID);
+	int sprintf_ret_val = sprintf (id_fifo_path, "./temp/%d", cur_fifo_ID);
+	if (sprintf_ret_val <= 0) {
+		perror ("Can't make id_fifo_path!\n");
+		exit (EXIT_FAILURE);
+	}
 
 	//opening current fifo 
-	int fd_ID_fifo = open (id_fifo_path, O_RDONLY);
+	int fd_ID_fifo = open (id_fifo_path, O_RDONLY | O_NONBLOCK);
+
+    //changing flags
+    int flag = fcntl (fd_ID_fifo, F_GETFL, 0);
+    flag = flag & ~O_NONBLOCK;
+    fcntl (fd_ID_fifo, F_SETFL, flag);
 
 	//writing text to stdout
 	while ((count = read (fd_ID_fifo, buf, READ_SIZE)) > 0) {
-		write (output, buf, count);
+        write (output, buf, count);
 	}
 
 	close  (fd_ID_fifo);
@@ -117,4 +132,3 @@ int reciever (int output)
 	PRINT ("cur_fifo_ID: %d\n", cur_fifo_ID);
 	return cur_fifo_ID;
 }
-
