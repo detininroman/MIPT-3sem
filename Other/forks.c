@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
 		int pid = fork ();
 		if (pid) 
 		{
-                    printf("%d\n", i);
+            printf("%d\n", i);
 		    break;
 		}
 	}
