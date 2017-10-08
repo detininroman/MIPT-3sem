@@ -22,9 +22,9 @@ int main (int argc, char** argv)
     msg_buf buf  = {};
     pid_t pid    = 0;
 
-	for (int i = 0; i < frk_num; i++) 
+    for (int i = 0; i < frk_num; i++) 
     {
-		if ((pid = fork()) == 0) // child 
+        if ((pid = fork()) == 0) // child 
         {
             msgrcv (msgid, &buf, 0, buf.mtype, 0);
             printf ("%ld\n", buf.mtype);
@@ -32,7 +32,7 @@ int main (int argc, char** argv)
             msgsnd (msgid, &buf, 0, 0);
             return 0;
         }
-		if (pid == -1) exit (EXIT_FAILURE);
+        if (pid == -1) exit (EXIT_FAILURE);
     }   
 
     buf.mtype = 1;
