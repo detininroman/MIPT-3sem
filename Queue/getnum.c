@@ -17,6 +17,7 @@ long get_number (char* arg)
         perror ("Wrong number!\n");
         exit (EXIT_FAILURE);
     }
+
     if ((errno == ERANGE && (num == LONG_MAX || num == LONG_MIN))
             || (errno != 0 && num == 0)) {
         perror ("Too big number!\n");
@@ -27,5 +28,6 @@ long get_number (char* arg)
         printf("Wrong number!\n");
         exit (EXIT_FAILURE);
     }
+
     return num;
 }

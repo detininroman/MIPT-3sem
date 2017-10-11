@@ -78,7 +78,8 @@ int reader (int output)
     // Create & open current FIFO
     char cur_fifo_name [MAX_LEN] = {};
     sprintf (cur_fifo_name, "./temp/%d.fifo", pid);
-    mkfifo (cur_fifo_name, 0666);
+    int ret_mkfifo = mkfifo (cur_fifo_name, 0666);
+    if (ret_mkfifo == -1) ERROR();
     int cur_fifo_fd = open (cur_fifo_name, O_RDONLY|O_NONBLOCK);
     if (cur_fifo_fd == -1) ERROR();
 
