@@ -36,7 +36,7 @@ int writer (char* input)
     // exit (0);
     D_PRINT("LINE: %d\n", __LINE__);
 
-    // Open current FIFO & changing flags
+    // Open current FIFO & change flags
     char cur_fifo_name [MAX_LEN] = {};
     if (sprintf (cur_fifo_name, "./temp/%d.fifo", pid) <= 0)
         ERROR();
@@ -55,7 +55,7 @@ int writer (char* input)
     // exit (0);
     D_PRINT("LINE: %d\n", __LINE__);
 
-    // Writing from input to current FIFO 
+    // Write from input to current FIFO 
     ssize_t bytes = 0;
     char buf [PIPE_BUF] = {};
     while ((bytes = read (inp_fd, buf, PIPE_BUF)) > 0) 
@@ -104,7 +104,7 @@ int reader (int output)
     // exit (0);
     D_PRINT("LINE: %d\n", __LINE__);
 
-    // Writing text to stdout
+    // Write text to stdout
     char buf [PIPE_BUF];
     ssize_t bytes = 0;
     while ((bytes = read (cur_fifo_fd, buf, PIPE_BUF)) > 0) {
