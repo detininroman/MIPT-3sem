@@ -1,0 +1,1 @@
+while true ; do ./queue 10 ; echo ; done

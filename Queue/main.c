@@ -27,12 +27,17 @@ int main (int argc, char** argv)
         if ((pid = fork()) == 0) // child 
         {
             msgrcv (msgid, &buf, 0, buf.mtype, 0);
-            printf ("%ld\n", buf.mtype);
+            printf ("%ld ", buf.mtype);
+            fflush (stdout);
             buf.mtype++;
             msgsnd (msgid, &buf, 0, 0);
             return 0;
         }
-        if (pid == -1) exit (EXIT_FAILURE);
+        if (pid == -1) 
+        { 
+            perror ("Fork error!\n"); 
+            exit (EXIT_FAILURE); 
+        }
     }   
 
     buf.mtype = 1;
