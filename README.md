@@ -1,7 +1,5 @@
-Operating systems.
+Operating systems. 3 semester 2017.
 ======================
-3 semester 2017.
-==========
 Tasks:
 -------
 * [**FIFO**](https://github.com/detininroman/OS-3/tree/master/FIFO) 

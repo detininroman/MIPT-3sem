@@ -3,11 +3,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <limits.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
-#include <sys/ipc.h>
-#include <string.h>
+
+#define NDEBUG
 
 #define ERROR() {                                   \
     printf ("ERROR!\n");                            \
@@ -16,19 +15,14 @@
     exit   (EXIT_FAILURE);                          \
 }
 
-#define SHMEM_SIZE 4096
-#define SEM_KEY 2107
-#define SHM_KEY 2107
+#define FILL_SB(sembuf_num, num, op, flg) { \
+    sb[sembuf_num].sem_num = num;           \
+    sb[sembuf_num].sem_op  = op;            \
+    sb[sembuf_num].sem_flg = flg;           \
+}
 
-/*
- * struct sembuf
- * {
- *      unsigned short int sem_num;
- *      short int sem_op;
- *      short int sem_flg;
- * };
- *
- */
+const size_t shmem_size = 16384;
+const char*  filename = "sem.c";
 
 union semnum {
     int val;
@@ -38,16 +32,20 @@ union semnum {
 
 int writer (char* input) 
 {
-    int shm_id = shmget (SHM_KEY, SHMEM_SIZE, 
+    if (!input) ERROR();
+
+    int shm_id = shmget (ftok (filename, 0), shmem_size, 
             IPC_CREAT | IPC_EXCL | 0600);
     if (shm_id == -1) ERROR();
  
-    int sem_id = semget (SEM_KEY, 1, 
+    int sem_id = semget (ftok (filename, 0), 1, 
             IPC_CREAT | IPC_EXCL | 0600);
     if (sem_id == -1) ERROR();
-   
+
+#ifdef DEBUG
     printf ("Semaphore: %d\n", sem_id);
-    
+#endif
+
     unsigned short sem_vals [1] = {};
     sem_vals [0] = 1;
     sem_arg.array = sem_vals;
@@ -71,17 +69,14 @@ int writer (char* input)
     if (read (inp_fd, shm_buf, file_size) <= 0) ERROR();
  
     close (inp_fd);
- 
+
+#ifdef DEBUG
     printf ("ID: %d\n", shm_id);
+#endif
 
     struct sembuf sb [1];
-
-    sb [0].sem_num = 0;
-    sb [0].sem_flg = SEM_UNDO; 
-    sb [0].sem_op = -1;
-    semop (sem_id, sb, 1);
-
-    sb [0].sem_op = -1;
+    
+    FILL_SB(0, 0, -2, SEM_UNDO);
     semop (sem_id, sb, 1);
 
     semctl (sem_id, 1, IPC_RMID, sem_arg);
@@ -93,21 +88,19 @@ int writer (char* input)
 
 int reader ()
 {
-    int shm_id = shmget (SHM_KEY, 1, 0600);
+    int shm_id = shmget (ftok (filename, 0), 1, 0600);
     if (shm_id == -1) ERROR();
  
-    int sem_id = semget (SEM_KEY, 1, 0600);
+    int sem_id = semget (ftok (filename, 0), 1, 0600);
     if (sem_id == -1) ERROR();
 
     char* shm_buf = (char*) shmat (shm_id, 0, 0);
     if (shm_buf == (char*) -1) ERROR();
 
-    printf ("MSG: %s", shm_buf);
+    printf ("MSG FROM SHMEM:\n%s", shm_buf);
     
     struct sembuf sb [1];
-    sb[0].sem_num = 0;
-    sb[0].sem_flg = SEM_UNDO;
-    sb[0].sem_op = 1;
+    FILL_SB(0, 0, 1, SEM_UNDO);
     semop (sem_id, sb, 1);
 
     shmdt (shm_buf);
