@@ -12,22 +12,32 @@
 int main (int argc, char** argv)
 {
     /* get common sources */
-    key_t key = ftok ("info.md", 0);
+    key_t key = ftok ("sem.h", 0);
+    if (key == -1) ERROR();
+
     int shmid = shmget (key, shmem_size, 0600 | IPC_CREAT);
+    if (shmid == -1) ERROR();
+    
     char* shm_buf = (char*) shmat (shmid, NULL, 0);
+    if (shm_buf == (char*) -1) ERROR();
+
     int semid = semget (key, SEMNUM, 0600 | IPC_CREAT);
-    if (semid == -1) PRINT("ERRNO: %d\n", errno);
+    if (semid == -1) ERROR();
+    
     struct sembuf sb [SEMNUM] = {};
 
-    if (argc == 1) 
-        reader (semid, shmid, shm_buf, sb);
-    else if (argc == 2) 
+    if (argc == 1)
+        reader (STDOUT_FILENO, semid, shmid, shm_buf, sb);
+    else if (argc == 2)  
         writer (argv [1], semid, shmid, shm_buf, sb);
     else {
         perror ("Incorrect arguments!\n");
-        exit   (EXIT_FAILURE);
+        exit (EXIT_FAILURE);
     }
 
+    PRINT("Semid: %d\nShmid: %d\n", semid, shmid);
+
+    /* remove semaphores and shared memory */
     shmdt  (shm_buf);
     shmctl (shmid, IPC_RMID, NULL);
     semctl (semid, 0, IPC_RMID);
@@ -46,41 +56,55 @@ void fill_sb (struct sembuf* sb, int sembuf_num,
 void writer (char* input, int semid, int shmid, 
         char* shm_buf, struct sembuf* sb) 
 {
-    if (!input) ERROR();
-    PRINT("Semid: %d\nShmid: %d\n", semid, shmid);
+    /* All cases of writer's death are considered */
 
+    if (!input) ERROR();
+ 
     /* open input file */
     int inp_fd = open (input, O_RDONLY);
     if (inp_fd == -1) ERROR();
  
+    exit (0);
+
     /* get file size */
     struct stat inp_buf;
     stat (input, &inp_buf);
     long file_size = inp_buf.st_size;
  
+    //exit (0);
+
     /* read from input file */
     if (read (inp_fd, shm_buf, file_size) <= 0) ERROR();
     close (inp_fd);
-    
-    /* writer wants to substract 1, allow it */ 
+   
+    //exit (0);
+
+    /* allow reader to continue */ 
     fill_sb (sb, 0, WFWR, +1, 0);  
     semop (semid, sb, 1);
     
+    //exit (0);
+
     /* change mutex */
     fill_sb (sb, 0, MUT,  -1, SEM_UNDO);
     semop (semid, sb, 1);
 }
 
-void reader (int semid, int shmid, 
+void reader (int output, int semid, int shmid, 
         char* shm_buf, struct sembuf* sb)
 {
-    /* waiting for writer */
+    /* if reader is first           */
+    /* wait for writer's permission */
     fill_sb (sb, 0, WFWR, -1, 0);
     semop (semid, sb, 1);
 
+    //exit (0);
+
     /* write to stdout */
-    if (write (STDOUT_FILENO, shm_buf, shmem_size) <= 0) ERROR();
-    
+    if (write (output, shm_buf, shmem_size) <= 0) ERROR();
+   
+    //exit (0);
+
     /* change semaphore */
     fill_sb (sb, 0, MUT, +1, SEM_UNDO);
     semop (semid, sb, 1);

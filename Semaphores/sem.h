@@ -18,7 +18,7 @@
     exit   (EXIT_FAILURE);                          \
 }
 
-enum {
+enum SEMAPHORES {
     MUT,     /* 0 (mutex)             */
     WFWR,    /* 1 (wait for writer)   */
     SEMNUM   /* 2 (semaphores amount) */
@@ -26,10 +26,11 @@ enum {
 
 const size_t shmem_size = 16384;
 
-void fill_sb (struct sembuf* sb, int sembuf_num, unsigned short num,
-        short op, short flg);
+void fill_sb (struct sembuf* sb, int sembuf_num, 
+        unsigned short num, short op, short flg);
 void writer (char* input, int semid, int shmid, char* shm_buf, 
         struct sembuf* sb); 
-void reader (int semid, int shmid, char* shm_buf, struct sembuf* sb);
+void reader (int output,int semid, int shmid, char* shm_buf, 
+        struct sembuf* sb);
 
 #endif
