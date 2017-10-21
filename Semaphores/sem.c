@@ -5,35 +5,45 @@
 #include <sys/stat.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <errno.h>
 
-#define NDEBUG
+#include "sem.h"
 
-#ifdef DEBUG
-#define PRINT(...) printf(__VA_ARGS__)
-#else
-#define PRINT(...)
-#endif
+int main (int argc, char** argv)
+{
+    /* get common sources */
+    key_t key = ftok ("info.md", 0);
+    int shmid = shmget (key, shmem_size, 0600 | IPC_CREAT);
+    char* shm_buf = (char*) shmat (shmid, NULL, 0);
+    int semid = semget (key, SEMNUM, 0600 | IPC_CREAT);
+    if (semid == -1) PRINT("ERRNO: %d\n", errno);
+    struct sembuf sb [SEMNUM] = {};
 
-#define ERROR() {                                   \
-    printf ("ERROR!\n");                            \
-    printf ("FUNCTION: %s\n", __PRETTY_FUNCTION__); \
-    printf ("LINE: %d\n", __LINE__);                \
-    exit   (EXIT_FAILURE);                          \
+    if (argc == 1) 
+        reader (semid, shmid, shm_buf, sb);
+    else if (argc == 2) 
+        writer (argv [1], semid, shmid, shm_buf, sb);
+    else {
+        perror ("Incorrect arguments!\n");
+        exit   (EXIT_FAILURE);
+    }
+
+    shmdt  (shm_buf);
+    shmctl (shmid, IPC_RMID, NULL);
+    semctl (semid, 0, IPC_RMID);
+    return 0;
 }
-
 
 /* fill sembuf with required values */
 void fill_sb (struct sembuf* sb, int sembuf_num, 
-        int num, int op, int flg) 
+        unsigned short num, short op, short flg) 
 {
     sb[sembuf_num].sem_num = num;  
     sb[sembuf_num].sem_op  = op; 
     sb[sembuf_num].sem_flg = flg;
 }
 
-const size_t shmem_size = 16384;
-
-int writer (char* input, int semid, int shmid, 
+void writer (char* input, int semid, int shmid, 
         char* shm_buf, struct sembuf* sb) 
 {
     if (!input) ERROR();
@@ -52,46 +62,26 @@ int writer (char* input, int semid, int shmid,
     if (read (inp_fd, shm_buf, file_size) <= 0) ERROR();
     close (inp_fd);
     
-    PRINT("Shm_buf in writer: %s\n", shm_buf);
-    
-    /* change semaphore */
-    fill_sb (sb, 0, 0, -1, SEM_UNDO);
+    /* writer wants to substract 1, allow it */ 
+    fill_sb (sb, 0, WFWR, +1, 0);  
     semop (semid, sb, 1);
-    return 0;
+    
+    /* change mutex */
+    fill_sb (sb, 0, MUT,  -1, SEM_UNDO);
+    semop (semid, sb, 1);
 }
 
-int reader (int semid, int shmid, 
+void reader (int semid, int shmid, 
         char* shm_buf, struct sembuf* sb)
 {
+    /* waiting for writer */
+    fill_sb (sb, 0, WFWR, -1, 0);
+    semop (semid, sb, 1);
+
     /* write to stdout */
     if (write (STDOUT_FILENO, shm_buf, shmem_size) <= 0) ERROR();
     
     /* change semaphore */
-    fill_sb (sb, 0, 0, 1, SEM_UNDO);
+    fill_sb (sb, 0, MUT, +1, SEM_UNDO);
     semop (semid, sb, 1);
-    return 0;
-}
-
-int main (int argc, char** argv)
-{
-    /* get common sources */
-    key_t key = ftok ("sem.c", 0);
-    int shmid = shmget (key, shmem_size, 0600 | IPC_CREAT);
-    char* shm_buf = (char*) shmat (shmid, NULL, 0);
-    int semid = semget (key, 1, 0600 | IPC_CREAT);
-    struct sembuf sb [1] = {};
-
-    if (argc == 1) 
-        reader (semid, shmid, shm_buf, sb);
-    else if (argc == 2) 
-        writer (argv [1], semid, shmid, shm_buf, sb);
-    else {
-        perror ("Incorrect arguments!\n");
-        exit   (EXIT_FAILURE);
-    }
-
-    shmdt  (shm_buf);
-    shmctl (shmid, IPC_RMID, NULL);
-    semctl (semid, 0, IPC_RMID);
-    return 0;
 }
