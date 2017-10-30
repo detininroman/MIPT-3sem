@@ -11,7 +11,6 @@
 
 int main (int argc, char** argv)
 {
-    /* get common sources */
     key_t key = ftok ("sem.h", 0);
     if (key == -1) ERROR();
 
@@ -26,10 +25,12 @@ int main (int argc, char** argv)
     
     struct sembuf sb [SEMNUM] = {};
 
-    if (argc == 1)
-        reader (STDOUT_FILENO, semid, shmid, shm_buf, sb);
-    else if (argc == 2)  
-        writer (argv [1], semid, shmid, shm_buf, sb);
+    if (argc == 1) {
+        client (STDOUT_FILENO, semid, shmid, shm_buf, sb);
+    }
+    else if (argc == 2) {  
+        server (argv [1], semid, shmid, shm_buf, sb);
+    }
     else {
         perror ("Incorrect arguments!\n");
         exit (EXIT_FAILURE);
@@ -53,59 +54,84 @@ void fill_sb (struct sembuf* sb, int sembuf_num,
     sb[sembuf_num].sem_flg = flg;
 }
 
-void writer (char* input, int semid, int shmid, 
+void server (char* input, int semid, int shmid, 
         char* shm_buf, struct sembuf* sb) 
 {
-    /* All cases of writer's death are considered */
-
     if (!input) ERROR();
  
+    /* check if server is alone */
+    fill_sb (sb, 0, SRV, 0, IPC_NOWAIT);
+    semop (semid, sb, 1);
+
+    /* begin */
+    fill_sb (sb, 0, SRV, +1, SEM_UNDO);
+    semop (semid, sb, 1);
+
+    /* wait for client */
+    fill_sb (sb, 0, CLI, -1, 0);
+    semop (semid, sb, 1);
+    fill_sb (sb, 0, CLI, +1, 0);
+    semop (semid, sb, 1); 
+
     /* open input file */
     int inp_fd = open (input, O_RDONLY);
     if (inp_fd == -1) ERROR();
  
-    exit (0);
-
     /* get file size */
     struct stat inp_buf;
     stat (input, &inp_buf);
     long file_size = inp_buf.st_size;
  
-    //exit (0);
+    /* check if client is still alive */
+    fill_sb (sb, 0, CLI, -1, IPC_NOWAIT);
+    semop (semid, sb, 1);
+    fill_sb (sb, 0, CLI, +1, 0);
+    semop (semid, sb, 1);
+
+    /* check uniqueness */
+    fill_sb (sb, 0, MUT, 0, 0);
+    semop (semid, sb, 1);
 
     /* read from input file */
     if (read (inp_fd, shm_buf, file_size) <= 0) ERROR();
     close (inp_fd);
    
-    //exit (0);
-
-    /* allow reader to continue */ 
-    fill_sb (sb, 0, WFWR, +1, 0);  
-    semop (semid, sb, 1);
-    
-    //exit (0);
-
-    /* change mutex */
-    fill_sb (sb, 0, MUT,  -1, SEM_UNDO);
+    /* increase mutex */
+    fill_sb (sb, 0, MUT, +1, 0);
     semop (semid, sb, 1);
 }
 
-void reader (int output, int semid, int shmid, 
+void client (int output, int semid, int shmid, 
         char* shm_buf, struct sembuf* sb)
 {
-    /* if reader is first           */
-    /* wait for writer's permission */
-    fill_sb (sb, 0, WFWR, -1, 0);
+    /* check if client is alone */
+    fill_sb (sb, 0, CLI, 0, IPC_NOWAIT);
     semop (semid, sb, 1);
 
-    //exit (0);
+    /* begin */
+    fill_sb (sb, 0, CLI, +1, SEM_UNDO);
+    semop (semid, sb, 1);
 
+    /* wait for server */
+    fill_sb (sb, 0, SRV, -1, 0); 
+    semop (semid, sb, 1);
+    fill_sb (sb, 0, SRV, +1, 0);
+    semop (semid, sb, 1); 
+    
+    /* check that server is alive */
+    fill_sb (sb, 0, SRV, -1, IPC_NOWAIT);
+    semop (semid, sb, 1);
+    fill_sb (sb, 0, SRV, +1, 0);
+    semop (semid, sb, 1);
+    
+    /* wait for data */
+    fill_sb (sb, 0, MUT, -1, 0);
+    semop (semid, sb, 1);
+    
     /* write to stdout */
     if (write (output, shm_buf, shmem_size) <= 0) ERROR();
    
-    //exit (0);
-
-    /* change semaphore */
+    /* data is read */
     fill_sb (sb, 0, MUT, +1, SEM_UNDO);
     semop (semid, sb, 1);
 }
