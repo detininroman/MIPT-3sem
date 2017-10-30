@@ -69,9 +69,8 @@ void server (char* input, int semid, int shmid,
 
     /* wait for client */
     fill_sb (sb, 0, CLI, -1, 0);
-    semop (semid, sb, 1);
-    fill_sb (sb, 0, CLI, +1, 0);
-    semop (semid, sb, 1); 
+    fill_sb (sb, 1, CLI, +1, 0);
+    semop (semid, sb, 2); 
 
     /* open input file */
     int inp_fd = open (input, O_RDONLY);
@@ -84,9 +83,8 @@ void server (char* input, int semid, int shmid,
  
     /* check if client is still alive */
     fill_sb (sb, 0, CLI, -1, IPC_NOWAIT);
-    semop (semid, sb, 1);
-    fill_sb (sb, 0, CLI, +1, 0);
-    semop (semid, sb, 1);
+    fill_sb (sb, 1, CLI, +1, 0);
+    semop (semid, sb, 2);
 
     /* check uniqueness */
     fill_sb (sb, 0, MUT, 0, 0);
@@ -114,15 +112,13 @@ void client (int output, int semid, int shmid,
 
     /* wait for server */
     fill_sb (sb, 0, SRV, -1, 0); 
-    semop (semid, sb, 1);
-    fill_sb (sb, 0, SRV, +1, 0);
-    semop (semid, sb, 1); 
+    fill_sb (sb, 1, SRV, +1, 0);
+    semop (semid, sb, 2); 
     
-    /* check that server is alive */
+    /* check if server is still alive */
     fill_sb (sb, 0, SRV, -1, IPC_NOWAIT);
-    semop (semid, sb, 1);
-    fill_sb (sb, 0, SRV, +1, 0);
-    semop (semid, sb, 1);
+    fill_sb (sb, 1, SRV, +1, 0);
+    semop (semid, sb, 2);
     
     /* wait for data */
     fill_sb (sb, 0, MUT, -1, 0);
