@@ -4,17 +4,23 @@
 #define NDEBUG
 
 #ifdef DEBUG
-#define PRINT(...) printf(__VA_ARGS__)
+#define _PRINT(...)   printf (__VA_ARGS__)
+#define _PRINT_LINE() printf ("LINE: %d\n", __LINE__);
 #else
-#define PRINT(...)
+#define _PRINT(...)
+#define _PRINT_LINE()
 #endif
 
-#define PRINT_LINE() printf("LINE: %d\n", __LINE__);
+#define _EXIT() {                                   \
+    printf ("Exit in line: %d\n", __LINE__);        \
+    printf ("Function: %s\n", __PRETTY_FUNCTION__); \
+    exit   (EXIT_SUCCESS);                          \
+} 
 
-#define ERROR() {                                   \
+#define _ERROR() {                                  \
     printf ("ERROR!\n");                            \
-    printf ("FUNCTION: %s\n", __PRETTY_FUNCTION__); \
-    printf ("LINE: %d\n", __LINE__);                \
+    printf ("Function: %s\n", __PRETTY_FUNCTION__); \
+    printf ("Line: %d\n", __LINE__);                \
     exit   (EXIT_FAILURE);                          \
 }
 
