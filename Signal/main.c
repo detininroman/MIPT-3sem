@@ -28,7 +28,6 @@ void init_sig_action (void (*handler)(int), int sig)
     struct sigaction act = {};
     act.sa_flags = 0;
     act.sa_handler = handler;
-    sigfillset (&act.sa_mask);
     CHECK(sigaction(sig, &act, NULL) != -1, "sigaction");
 }
 
