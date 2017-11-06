@@ -14,40 +14,34 @@
 }
 /* ------------------------------------ */
 
-enum { MAX_NUM = 1 << 7 };
+enum { 
+    INIT_MASK = 1 << 7,
+    BUF_SIZE  = 1 << 12
+};
 
-pid_t pid = 0;
-sigset_t set = 0;
-int mask = MAX_NUM;
-int received_char = 0;
+sigset_t set;
+int mask = INIT_MASK;
+char received_char = 0;
 
-/* HANDLER is to control the reaction on SIG signal */
 void init_sig_action (void (*handler)(int), int sig)
 {
     struct sigaction act = {};
     act.sa_flags = 0;
     act.sa_handler = handler;
+    sigfillset (&act.sa_mask);
     CHECK(sigaction(sig, &act, NULL) != -1, "sigaction");
 }
 
-/* ------------------------ */
-/* -- SIGUSR1 equal to 1 -- */
-/* -- SIGUSR2 equal to 0 -- */
-/* ------------------------ */
-
 void bit_handler (int sig)
 {
-    if (sig == SIGUSR1) {
+    if (sig == SIGUSR1)
         received_char |= mask;
-    }
     mask >>= 1;
-    CHECK(kill(pid, SIGUSR1) != -1, "kill");
 }
 
-/* confirmation from parent */
 void dummy_handler (int sig) {}
 
-void parent ()
+void parent (int child)
 {
     init_sig_action (exit, SIGCHLD);
     init_sig_action (bit_handler, SIGUSR1);
@@ -61,10 +55,11 @@ void parent ()
             CHECK(write (STDOUT_FILENO, &received_char, 1) != -1,
                     "write");
             fflush (stdout);
-            mask = MAX_NUM;
+            mask = INIT_MASK;
             received_char = 0;
         }
         sigsuspend (&set);
+        CHECK(kill(child, SIGUSR1) != -1, "kill");
     }
 }
 
@@ -82,22 +77,22 @@ void child (char* input)
     int src = open (input, O_RDONLY);
     CHECK (src != -1, "open");
  
-    char byte = 0;
-    int cnt = 0;
-    while (read (src, &byte, 1) > 0) {
+    ssize_t rbytes = 0;
+    char buf[BUF_SIZE] = {};
+    while ((rbytes = read (src, buf, BUF_SIZE)) > 0) {
         alarm (1);
-        cnt = MAX_NUM;
-        while (cnt > 0) { 
-            if (cnt & byte) // bit 1
-                kill (parent, SIGUSR1);
-            else            // bit 0
-                kill (parent, SIGUSR2);
-            
-            cnt >>= 1;
-            /* wait a signal from parent */
-            sigsuspend (&set);
+        for (int byte_cnt = 0; byte_cnt < rbytes; byte_cnt++) {
+            for (int c_mask = 1 << 7; c_mask > 0; c_mask >>= 1) {
+                if (c_mask & buf [byte_cnt]) {
+                    kill (parent, SIGUSR1); // bit 1
+                } else {                      
+                    kill (parent, SIGUSR2); // bit 0
+                }
+                /* wait a signal from parent */
+                sigsuspend (&set);
+            }
         }
-    }
+    } 
     exit (EXIT_SUCCESS);
 }
 
@@ -111,14 +106,12 @@ int main (int argc, char** argv)
     CHECK(sigaddset (&set, SIGCHLD) != -1, "sigaddset");
     CHECK(sigprocmask (SIG_BLOCK, &set, NULL) != -1, "sigprocmask");
 
-    pid = fork();
+    int child_pid = fork ();
 
-    if (pid > 0) {
-        parent ();
-    } else if (pid == 0) {
-        child (argv[1]);
-    } else { 
-        perror ("Fork:");
+    switch (child_pid) {
+        case -1: perror ("Fork:");
+        case  0: child  (argv[1]);
+        default: parent (child_pid);
     }
     return 0;
 }
