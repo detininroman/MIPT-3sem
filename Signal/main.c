@@ -4,50 +4,48 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-/* ------------------------------------ */
-#define CHECK(cond, func) {              \
-    if (!(cond)) {                       \
-        printf ("Error: %s\n", func);    \
-        printf ("Line: %d\n", __LINE__); \
-        exit (EXIT_FAILURE);             \
-    }                                    \
+/* ----------------------------------------------------- */
+#define CHECK(cond, func) {                               \
+    if (!(cond)) {                                        \
+        printf ("Error: %s\nLine: %d\n", func, __LINE__); \
+        exit (EXIT_FAILURE);                              \
+    }                                                     \
 }
-/* ------------------------------------ */
+/* ----------------------------------------------------- */
 
 enum { 
     INIT_MASK = 1 << 7,
     BUF_SIZE  = 1 << 12
 };
 
-sigset_t set;
-int mask = INIT_MASK;
-char received_char = 0;
+char bit = -1;
 
-void init_sig_action (void (*handler)(int), int sig)
+void set_handler (void (*handler)(int), int sig)
 {
     struct sigaction act = {};
-    act.sa_flags = 0;
     act.sa_handler = handler;
     CHECK(sigaction(sig, &act, NULL) != -1, "sigaction");
 }
 
 void bit_handler (int sig)
 {
-    if (sig == SIGUSR1)
-        received_char |= mask;
-    mask >>= 1;
+    bit = (sig == SIGUSR1)? 1: 0;
 }
 
 void dummy_handler (int sig) {}
 
 void parent (int child)
 {
-    init_sig_action (exit, SIGCHLD);
-    init_sig_action (bit_handler, SIGUSR1);
-    init_sig_action (bit_handler, SIGUSR2);
+    set_handler (exit, SIGCHLD);
+    set_handler (bit_handler, SIGUSR1);
+    set_handler (bit_handler, SIGUSR2);
 
+    sigset_t set;
     CHECK(sigemptyset(&set) != -1, "sigemptyset");
-
+ 
+    int mask = INIT_MASK;
+    char received_char = 0;
+    
     for (;;)
     {
         if (!mask) {
@@ -58,6 +56,11 @@ void parent (int child)
             received_char = 0;
         }
         sigsuspend (&set);
+     
+        if (bit == 1) 
+            received_char |= mask;
+        mask >>= 1;
+
         CHECK(kill(child, SIGUSR1) != -1, "kill");
     }
 }
@@ -66,15 +69,16 @@ void child (char* input)
 {
     CHECK(input, "NULLPTR")
 
-    init_sig_action (exit, SIGALRM);
-    init_sig_action (dummy_handler, SIGUSR1);
+    set_handler (exit, SIGALRM);
+    set_handler (dummy_handler, SIGUSR1);
 
+    sigset_t set;
     CHECK(sigemptyset (&set) != -1, "sigemptyset");
 
     pid_t parent = getppid ();
 
     int src = open (input, O_RDONLY);
-    CHECK (src != -1, "open");
+    CHECK(src != -1, "open");
  
     ssize_t rbytes = 0;
     char buf[BUF_SIZE] = {};
@@ -99,6 +103,7 @@ int main (int argc, char** argv)
 {
     CHECK(argc == 2, "Invalid argument");
 
+    sigset_t set;
     CHECK(sigemptyset (&set) != -1, "sigemptyset");
     CHECK(sigaddset (&set, SIGUSR1) != -1, "sigaddset");
     CHECK(sigaddset (&set, SIGUSR2) != -1, "sigaddset");
