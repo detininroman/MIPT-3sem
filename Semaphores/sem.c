@@ -7,8 +7,6 @@
 #include <sys/sem.h>
 #include <errno.h>
 
-#define NDEBUG
-
 enum {
     SRV = 0,
     SRV_PREV,

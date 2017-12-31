@@ -46,8 +46,7 @@ void parent (int child)
     int mask = INIT_MASK;
     char received_char = 0;
     
-    for (;;)
-    {
+    for (;;) {
         if (!mask) {
             CHECK(write (STDOUT_FILENO, &received_char, 1) != -1,
                     "write");
@@ -85,7 +84,7 @@ void child (char* input)
     while ((rbytes = read (src, buf, BUF_SIZE)) > 0) {
         alarm (1);
         for (int byte_cnt = 0; byte_cnt < rbytes; byte_cnt++) {
-            for (int c_mask = 1 << 7; c_mask > 0; c_mask >>= 1) {
+            for (int c_mask = INIT_MASK; c_mask > 0; c_mask >>= 1) {
                 if (c_mask & buf [byte_cnt]) {
                     kill (parent, SIGUSR1); // bit 1
                 } else {                      
@@ -95,7 +94,7 @@ void child (char* input)
                 sigsuspend (&set);
             }
         }
-    } 
+    }
     exit (EXIT_SUCCESS);
 }
 
@@ -104,14 +103,17 @@ int main (int argc, char** argv)
     CHECK(argc == 2, "Invalid argument");
 
     sigset_t set;
+
+    //int child_pid = fork ();
+
     CHECK(sigemptyset (&set) != -1, "sigemptyset");
     CHECK(sigaddset (&set, SIGUSR1) != -1, "sigaddset");
     CHECK(sigaddset (&set, SIGUSR2) != -1, "sigaddset");
     CHECK(sigaddset (&set, SIGCHLD) != -1, "sigaddset");
     CHECK(sigprocmask (SIG_BLOCK, &set, NULL) != -1, "sigprocmask");
-
+    
     int child_pid = fork ();
-
+ 
     switch (child_pid) {
         case -1: perror ("Fork:");
         case  0: child  (argv[1]);

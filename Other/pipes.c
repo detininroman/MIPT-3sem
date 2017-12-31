@@ -46,8 +46,7 @@ int main (int argc, char* argv[])
 			exit (EXIT_FAILURE);
 		}
 
-		while ((input_size = 
-			read (input, buf, PIPE_SIZE)) > 0) {
+		while ((input_size = read (input, buf, PIPE_SIZE)) > 0) {
 			write (pipefd [1], buf, input_size);
 		}
 		
